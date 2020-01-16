@@ -24,6 +24,13 @@ rawData <- readRDS(paste0(mainDir, subDir, name_df, "_raw", time_stamp, '.rds'))
 ###################################################################################
 
 
+earliest = "2001-01-01" #"1988-01-01" 
+lastdate = "2005-12-31"    #"2019-05-31"
+rawData %>% 
+  filter(datadate >= earliest & datadate <= lastdate) %>% 
+  saveRDS(paste0(mainDir, subDir, name_df, "_raw", '2001-2005.rds'))
+
+
 library(tidyverse)
 library(magrittr)
 library(lubridate)
@@ -64,8 +71,8 @@ isosrc
 # Data integrity checks: Remove problematic observations (eg, gvkey-datadate obs. with missing-value sics1, etc)
 ```{r}
 
-earliest = "1978-01-01" #"1988-01-01" 
-lastdate = "2020-05-31"    #"2019-05-31"
+earliest = "2001-01-01" #"1988-01-01" 
+lastdate = "2005-12-31"    #"2007-12-31"
 
 data_cleaned <- rawData %>% 
   filter(srcdate >= datadate) %>% # remove at least 6 data error cases
@@ -182,7 +189,7 @@ data_cleaned %>%
 # Save cleaned data for further processing and regression analysis
 ```{r}
 
-saveRDS(data_cleaned, file = paste0(mainDir, subDir, name_df, "_clean", time_stamp, '.rds'))
+saveRDS(data_cleaned, file = paste0(mainDir, subDir, name_df, "_clean", '2001-2005.rds'))
 
 ```
 

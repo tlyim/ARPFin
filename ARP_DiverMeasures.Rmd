@@ -136,8 +136,13 @@ are also excluded,
 # Read in Compustat Fundamental [Annual] Data (_raw) and define variables
 ```{r}
 
+
+# readRDS(paste0(Sys.getenv("Data"), "/Compustat/", "inferEarnA_raw", "2019-11-04_01.36.36", '.rds')) %>% 
+#   filter(fyear >= 2001 & fyear <= 2005) %>% 
+#   saveRDS(paste0(Sys.getenv("Data"), "/Compustat/", "inferEarnA_raw", '2001-2005.rds'))
+
 # The raw Fundamental Annual is most complete as it's not subject to prior deficiency in handling data
-dDiscA <- readRDS(paste0(Sys.getenv("Data"), "/Compustat/", "inferEarnA_raw", "2019-11-04_01.36.36", '.rds')) %>% 
+dDiscA <- readRDS(paste0(Sys.getenv("Data"), "/Compustat/", "inferEarnA_raw", '2001-2005.rds')) %>% 
   # (note: must remove is.na(fyear) first, or NA with be matched to is.na(fyearq))
   filter(!is.na(fyear)) %>%  
   # apply Custodio's criterion: sale >= 20 million
