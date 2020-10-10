@@ -24,14 +24,15 @@ dir.create(file.path(mainDir, subDir), showWarnings = FALSE, recursive = TRUE)
 
 
 ###################################################################################
-time_stamp = "2019-10-31_23.55.19"
-data_cleaned <- readRDS(paste0(mainDir, subDir, name_df, "_clean", time_stamp, '.rds')) 
+#time_stamp = "2019-10-31_23.55.19"
+data_cleaned <- readRDS(paste0(mainDir, subDir, name_df, "_clean", 'Example.rds')) 
+#data_cleaned <- readRDS(paste0(mainDir, subDir, name_df, "_clean", time_stamp, '.rds')) 
 ###################################################################################
 
 
 #=====================================================
-# Variable list for this dataset
-vars = "datadate, srcdate, srcs, upds, gvkey, sics1, sics2, sics3, 
+# segment Variable list for this dataset
+segmvars_list = "datadate, srcdate, srcs, upds, gvkey, sics1, sics2, sics3, 
 stype, sid, snms, soptp1, soptp2, geotp, naicsh, naicss1, naicss2, naicss3,
 
 emps, emps_dc, emps_fn, obs, obs_dc, 
@@ -54,6 +55,13 @@ xints, xints_dc, xsgas, xsgas_dc,
 curcds, 
 isosrc 
 "  
+
+#=====================================================
+# firm Variable list for this dataset
+firmvars_list = "datadate gvkey 
+fic adrr
+fyear sich at sale oiadp ceq prcc_f csho capx  gdwl" %>% 
+  str_split("[ |\n]+", simplify = T) %>% c()  # "[ |\n]+" matches any number of spaces or line breaks (\n)
 
 ```
 
@@ -92,8 +100,8 @@ segmData <- data_cleaned %>% # 296944
 ##########################################################  
   ungroup() %>% 
   filter(!rm_flag) %>% 
-  select(gvkey, stype, datadate, fyears, sid, sics_my, sics1, sics2, sics3, snms,
-         everything()) %>% 
+# select(gvkey, stype, datadate, fyears, sid, sics_my, sics1, sics2, sics3, snms,
+#        everything()) %>% 
 
   #=======================================================
   # compute nseg = number of segments, MS = 1 if nseg > 1L
@@ -110,10 +118,10 @@ segmData <- data_cleaned %>% # 296944
   # define dummy for multiple-segment firms
   mutate(MS = as.integer(nseg > 1)) %>% 
   arrange(desc(nseg), gvkey, stype, datadate, sid) %>% 
-  select(gvkey, stype, soptp1, geotp, isosrc, datadate, fyears, MS, nseg, 
-         saleSUM, iaSUM, 
-         rm_flag, sid, sics_my, sics1, sics2, snms, 
-         everything()) %>% 
+# select(gvkey, stype, soptp1, geotp, isosrc, datadate, fyears, MS, nseg, 
+#        saleSUM, iaSUM, 
+#        rm_flag, sid, sics_my, sics1, sics2, snms, 
+#        everything()) %>% 
   select(everything())
 
 ```
@@ -141,9 +149,34 @@ are also excluded,
 #   saveRDS(paste0(Sys.getenv("Data"), "/Compustat/", "inferEarnA_raw", '2001-2005.rds'))
 
 # The raw Fundamental Annual is most complete as it's not subject to prior deficiency in handling data
-dDiscA <- readRDS(paste0(Sys.getenv("Data"), "/Segment/", "inferEarnA_raw", '2001-2005.rds')) %>% 
-  # (note: must remove is.na(fyear) first, or NA with be matched to is.na(fyearq))
-  filter(!is.na(fyear)) %>%  
+
+
+dDiscA <- read.csv(paste0(mainDir, subDir, 'ccmfunda_01Jan1990_31Dec1991.csv'), 
+                   stringsAsFactors = FALSE) %>% 
+# For simplicity, keep only the security issue ID = 01 so that 
+#   there is only one issue for each firm in the sample
+  filter(LIID == "1") %>% 
+  left_join(
+    read.csv(paste0(mainDir, subDir, 'ccmfunda_LIID=01_(FIC_ADRR)_01Jan1990_31Dec1991.csv'),
+             stringsAsFactors = FALSE) %>% 
+      select(GVKEY, datadate, fic, adrr), 
+    by = c("GVKEY", "datadate")  # note: gvkey originally was in captial letters after download
+    ) %>%  
+# remove ADR firms (ie, firms with non-empty ADR ratio) and firms incorporated outside USA
+  filter(is.na(adrr) & fic == "USA") %>% 
+# convert datadate to Date format
+  mutate(
+      datadate_int = datadate, # keep a copy of the original integer format
+      datadate = ymd(datadate), 
+      )
+
+# change all column variable names to lowercase
+names(dDiscA) <- tolower(names(dDiscA))  
+  
+
+
+#dDiscA <- readRDS(paste0(Sys.getenv("Data"), "/Segment/", "inferEarnA_raw", '2001-2005.rds')) %>% 
+dDiscA <- dDiscA %>% 
   # apply Custodio's criterion: sale >= 20 million
   filter(sale > 20) %>%  
   # The next is implicitly required to implement the "no larger than 5% deviation" criteria
@@ -191,8 +224,8 @@ dDiscA <- readRDS(paste0(Sys.getenv("Data"), "/Segment/", "inferEarnA_raw", '200
 ```{r}
 
 # Custodio's sample period for segment data
-startdate = "1988-01-01"
-enddate = "2007-12-31"
+startdate = "1990-01-01" #"1998-01-01" 
+enddate = "1999-12-31"    #"1999-12-31"
 
 
 dDiscSegA <- segmData %>% 
