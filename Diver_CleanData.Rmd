@@ -18,9 +18,9 @@ library(stargazer)
 
 name_df = "segmentHist"
 
-mainDir = Sys.getenv("Data") #'D:/github/Data/'
-subDir = '/Segment/'
-dir.create(file.path(mainDir, subDir), showWarnings = FALSE, recursive = TRUE)
+mainDir = '' #Sys.getenv("Data") #'D:/github/Data/'
+subDir = ''  #'/Segment/'
+#dir.create(file.path(mainDir, subDir), showWarnings = FALSE, recursive = TRUE)
 
 
 ###################################################################################
