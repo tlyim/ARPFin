@@ -1,5 +1,5 @@
 ---
-title: "<medium><b>Diversification Discount </br>in Firm Valuation: </b></medium>"
+title: "<medium><b>Diversification Discount <br>in Firm Valuation: </b></medium>"
 subtitle: "Project Introduction"
 author: "<smaller><cap>Dr. Andrew Yim</cap></smaller>"
 date: "<smaller>October 2020</smaller>"
@@ -33,6 +33,7 @@ output:
 ---
 
 
+
 ## This theme group concerns
 
 - Discount on diversified firms' valuations, when benchmarked against focused firms' (Berger and Ofek 1995)
@@ -45,8 +46,8 @@ output:
 ## Comparison metric  
 
 - Berger and Ofek (1995) use various asset/sales/EBIT multiples, incl.
-- the q ratio used in Custodio (2014)
-  - q = Market Value to Book Value of total assets
+  - the q ratio used in Custodio (2014)
+    - q = Market Value to Book Value of total assets
 - BV of TA is measured with Compustat's variable `at`
   - MV of TA is estimated with
     - `at - ceq + prcc_f*csho`,
@@ -59,11 +60,11 @@ output:
 
 ## The comparision benchmark
 
-- For any Ms firm, 
+- For any MS firm, 
   - find an equivalent 'synthetic' MS firm
 - Compare the MS firm's q actually observed (q_Obs) to the q imputed (q_Imp) for the synthetic MS firm 
-  - a valuation discount if q_Obs/q_Imp < 1, i.e., 
-    - Excess value xv = log(q_Obs/q_Imp) < 0  
+  - a **valuation discount** if q_Obs/q_Imp < 1, i.e., 
+    - **Excess value xv** = log(q_Obs/q_Imp) **< 0**
   
   
 
@@ -85,11 +86,19 @@ output:
   
 ## Different operation scale?  
 
-- The SS firms in general have operation scales different from the segments of the MS firm.
+- The SS firms in general have operation scales different from the segments' of the MS firm.
 - No worries. The q ratio is scale-free!
   - simply use the actually observed q ratios of the SS firms as the q ratios imputed for the segments of the MS firm
   - weight these q ratios (e.g.,  by the segment assets of the MS firm) to compute a weighted average q ratio as the imputed q ratio (q_Imp) for the MS firm
   
+
+
+## Example segment-level and firm-level data
+
+![Segment-level data](segmentData.PNG){.class width=80%}
+
+![Firm-level data](firmData.PNG)
+
 
 
 # Elements of Research 
@@ -260,26 +269,26 @@ output:
 
 # Expectations
 
-- most reports fall in the _*40's to low 70's*_ mark range
-  - see a report in the shared folder that earned below 40
 - very, very occasionally, there were reports in low to mid 80's 
 
+- most reports fall in the **40's to low 70's** mark range
+  - see a report in the shared folder that earned below 40
 
 
-## Help me to give you higher marks
+
+## Help me to give higher marks
 
 - I always want to get higher marks 
-  - but I need to let the _*internal second marker*_ and the _*external examiner*_ know the rationales for giving the marks
+  - but I need to let the **internal second marker** and the **external examiner** know the rationales for giving the marks
 - For example, 
   - I had given a low 80's to a student but the second marker independently gave a lower mark, leaving the final mark to be a high 70's
   - The external examiner had questioned a case where I gave a low 40's and believed it should be a fail.
   
 
 
-## Compare the following
+## Other things being equal, 
 
-- Other things being equal, 
-  - which of the reported tables below deserve higher marks?
+- **Which** of the reported tables below **deserve higher marks?**
 
 
 
@@ -300,14 +309,14 @@ output:
 ## What can lead to low marks?
 
 - For example, 
-  - a report on a theme group about accounting restatements 
-    - had a review of the related literature that contains not a single article mentioning 'restatement' in the title; 
-    - repeatedly misspelt 'restatement' as 'reinstatment'.
+  - a report from a theme group on accounting restatements 
+    - repeatedly misspelt 'restatement' as 're**in**statement'.
+    - had a literature review that discusses **not a single article** with 'restatement' in the title; 
   - The quality of the report was in line with the student's low participation in the module: 
-    - Never attended any of the 5 meetings, not even the first one
-    - Submitted a very brief project proposal. I warned: 
-      - "Many details need to be filled in before one can tell if the project is likely to be workable. Please do not underestimate the effort required to complete the project and the risks involved if it is not taken seriously enough."
-    - Never submitted the milestone Methodology chapter or responded to submission reminders 
+    - Never attended any of the 5 meetings, **not even the first one**
+    - Submitted a very brief project proposal. I cautioned the student: 
+      - "Many details need to be filled in before one can tell if the project is likely to be workable. Please do not underestimate the effort required to complete the project and the risks involved if it is **not taken seriously enough**."
+    - Never submitted the milestone Methodology chapter; **no response** to submission reminders. 
 
 
 
