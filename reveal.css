@@ -1,0 +1,120 @@
+.reveal section {
+    font-size: 75%;
+}
+
+.reveal .r{ /* Code block */
+    font-size: 100%;
+}
+
+.reveal pre { /* preformatted includes the code chunk output */
+    font-size: 80%;
+}
+
+.reveal cap {
+  text-transform: capitalize; /*lowercase; */
+}
+
+.reveal smaller { 
+  font-size: 80%;  /* font-size: 22px */
+}
+
+.reveal larger { 
+  font-size: medium;  /* font-size: 22px */
+}
+
+.reveal section del { /* marked with   ~~ ~~  */
+  color: red;
+}
+
+.reveal section footer {
+    font-size: 9px;
+    color: red; 
+    background-color: transparent;
+    position: fixed; top: 90%;
+    text-align: right; width:100%;
+}
+
+
+
+.reveal section p {
+  color: black;     /* use blue to change bullet point text to blue */
+  font-size: 100%;
+}
+
+
+
+
+/*
+
+.reveal h2 {  
+  font-size: 200%;  
+  color: red  ;
+}
+
+*/
+
+/*
+<!-- .element: class="fragment" -->
+*/
+
+/*
+
+/* Normal  *//*
+.reveal section body{ 
+  color: yellow;      
+  font-family: Helvetica;
+  font-size: 9px;
+  }
+
+
+/*
+
+.title {
+  font-size: 38px;
+  color: DarkRed;
+}
+
+td {  /* Table  *//*
+  font-size: 8px;
+}
+
+h1 { /* Header 1 *//*
+  font-size: 28px;
+  color: DarkBlue;
+}
+h2 { /* Header 2 *//*
+    font-size: 22px;
+  color: DarkBlue;
+}
+h3 { /* Header 3 *//*
+  font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: DarkBlue;
+}
+
+pre { /* Code block - determines code spacing between lines *//*
+    font-size: 14px;
+}
+
+
+/*
+.reveal .r{ /* Code block *//*
+    font-size: 5px;
+}
+
+
+.reveal section {
+    font-size: 5pt;
+}
+
+
+/* Whole document: *//*
+.reveal body{ 
+  font-family: Helvetica;
+  font-size: 16pt;
+}
+
+/* Headers *//*
+.reveal h1,h2,h3,h4,h5,h6{
+  font-size: 24pt;
+}
