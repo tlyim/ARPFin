@@ -6,69 +6,10 @@ output:
   # word_document: default
 ---
 
+This code replicates some diversification discount results in Table III
+of Custodio (2014) using data for 1990-1991.
 
-# Load raw data and required library
-```{r}
-
-#library(magrittr)
-library(tidyverse)
-library(lubridate)
-library(stargazer)
-
-
-name_df = "segmentHist"
-
-mainDir = '' #Sys.getenv("Data") #'D:/github/Data/'
-subDir = '' #'/Segment/'
-#dir.create(file.path(mainDir, subDir), showWarnings = FALSE, recursive = TRUE)
-
-
-###################################################################################
-#time_stamp = "2019-10-31_23.55.19"
-data_cleaned <- readRDS(paste0(mainDir, subDir, name_df, "_clean", 'Example.rds')) 
-#data_cleaned <- readRDS(paste0(mainDir, subDir, name_df, "_clean", time_stamp, '.rds')) 
-###################################################################################
-
-
-#=====================================================
-# segment Variable list for this dataset
-segmvars_list = "datadate, srcdate, srcs, upds, gvkey, sics1, sics2, sics3, 
-stype, sid, snms, soptp1, soptp2, geotp, naicsh, naicss1, naicss2, naicss3,
-
-emps, emps_dc, emps_fn, obs, obs_dc, 
-intseg, intseg_dc, oelim, oelim_dc, 
-esubs, esubs_dc, esubs_fn, ivaeqs, ivaeqs_dc, 
-salexg, salexg_dc, spis, spis_dc, xidos, xidos_dc, 
-
-atlls, atlls_dc, capxs, capxs_dc, capxs_fn, caxts, caxts_dc, 
-cogss, cogss_dc, dps, dps_dc, gdwls, gdwls_dc, 
-
-ias, ias_dc, ibs, ibs_dc, iints, iints_dc, 
-nis, nis_dc, nopxs, nopxs_dc, nxints, nxints_dc, ocaxs, ocaxs_dc, 
-oiadps, oiadps_dc, oibdps, oibdps_dc, ops, ops_dc, ops_fn, 
-ppents, ppents_dc, ptis, ptis_dc, rds, rds_dc, rds_fn, 
-
-revts, revts_dc, sales, sales_dc, sales_fn,  
-txts, txts_dc, txws, txws_dc, 
-xints, xints_dc, xsgas, xsgas_dc, 
-
-curcds, 
-isosrc 
-"  
-
-#=====================================================
-# firm Variable list for this dataset
-firmvars_list = "datadate gvkey 
-fic adrr
-fyear sich at sale oiadp ceq prcc_f csho capx  gdwl" %>% 
-  str_split("[ |\n]+", simplify = T) %>% c()  # "[ |\n]+" matches any number of spaces or line breaks (\n)
-
-```
-
-
-## Remarks on filtering criteria by Custodio (2014)---------------------------------------------------------------
-
-sample of firms in Compustat Segments data from [1988 to 2007] meeting the following criteria:
+She constructs her sample based on the following criteria:
 
 * firms with missing segment SIC codes are excluded
 
@@ -76,41 +17,139 @@ sample of firms in Compustat Segments data from [1988 to 2007] meeting the follo
   - financial sector (SIC codes 6000 to 6999), 
   - agriculture (SIC code lower than 1000), 
   - government (SIC 9000), or 
-  - other noneconomic activities (SIC 8600 and 8800); 
+  - other noneconomic activities (SIC 8600 and 8800)
 
-##----------------------------------------------------------------------------------------------------------------
+In addition,  
 
-# Compute number of segments, other diversification measures, and sums of sales|ias (Custodio 2014)
+* firms for unclassified services (SIC 8900) are excluded; 
+  
+* firm sales greater than $20 million; 
+
+* firms for which the [sum of business segment sales or assets] deviates from the [firm’s total sales or assets] by [more than 5%] are also excluded
+
+
+# Load required library and the cleaned segment-level data
 ```{r}
 
-segmData <- data_cleaned %>% # 296944
+# '#' indcates the beginning of a comment (ignored by R) to annotate code lines
+# It is also a convenient way to deactivate a code line when you change your mind and want to exclude it
+
+
+# Below loads the required libraries
+#library(magrittr)
+library(tidyverse)
+library(lubridate)
+library(stargazer)
+
+firmData_file = 'ccmfunda_01Jan1990_31Dec1991.csv'
+
+# Below sets changeable parameters for the path of the cleaned data file
+mainDir = ''  
+subDir = ''  
+###################################################################################
+# Read in the example data, in R's .rds format, already prepared by Diver_CleanData.Rmd
+data_cleaned <- readRDS(paste0(mainDir, subDir, "segmentHist_clean", 'Example.rds')) 
+###################################################################################
+
+```
+
+
+Commands and functions used in the next code chunk: 
+
+'%>%' is used to chain a series of operations together in one go (a function by package {magrittr})
+ You can think of the chained operations as the different steps in a factory production line
+
+'sics_my' below is my version of the segment SIC code,
+  currently defined as sics_my = sics1 (the first segment SIC code provided by Compustat)
+Coding in terms of sics_my allows the flexibility of changing the assignment of sics_my later
+For example, I can simply reassign sics_my = sics2 (Compustat's second segment SIC code)
+  without changing all the code lines involving sics_my
+
+'rm_flag' below sets the flag for later removing certain inappropriate observations
+  It is only indicating what is to be removed, not immediately removing the observation
+ Certain observations need to be reomoved because they do not fit the sample construction criteria
+
+'ifelse(Condition, Value_T, Value_F)' checks
+  whether the Condition is true (T) or false (F) for every item in a column of a dataframe
+  (or, if you like, a worksheet),
+  then assign Value_T if the condition is true and Value_F if false
+
+'mutate(Variable = Value)' assigns a value to a column variable of a dataframe
+
+'=>' means greater than or equal to ('==' means equal to, '<=' means less than or equal to)
+
+'group_by(Var1, Var2, Var3)' groups the rows of a dataframe according to
+  each unique combination of the variables Var1, Var2, and Var3,
+  then let the actions in the code lines thereafter to apply the actions group by group individually,
+  eg, this would be convenient for computing the subtotals of those groups,
+  rather than a single overall for all the rows of the dataframe.
+  
+'gvkey' is Compustat's unique company identifier for each firm in the database (Note: the variable gvkey from the CRSP-Compustat Merged Fundamental Annual database was originally in captial letters, ie, GVKEY. It must be converted into lower case before it can be used as the key for merging the firm-level Fundamental Annual data with the segment-level Historical Segments data)
+
+'datadate' is Compustat's variable for the date of the data in concern. 
+
+'ungroup()' ends the group operations and returns to the normal mode
+
+'is.na(Variable)' checks whether T or F that the Variable has no value (ie, indicated as NA)
+
+'|' means the OR of two conditions ('&' means the AND of two conditions)
+
+'!' placed in front of a logical variable (taking TRUE or FALSE as value) means negation, ie,
+ turning TRUE to FALSE, or FALSE to TRUE
+ thus, '!rm_flag' stands for the condition that !rm_flag is TRUE, which means rm_flag is FALSE
+
+'filter(Condition)' filters the dataframe to keep only the rows in the dataframe meeting the Condition
+  So 'filter(!rm_flag)' keeps only the rows where the flag rm_flag = FALSE
+
+'n()' gets the total count of the rows in a group;
+  eg, used to determine how many segments a firm has (after grouping segment records by each firm)
+
+'sum(Variable)' gets the total sum of the values in the Variable column of a group
+  eg, used to determine the sum of the segment sales of a firm
+  For financial reporting reasons, this sum can deviate from the consolidated total sales of the firm
+  Diversification research often requires excluding obs. with large deviations in firm & segment sales
+
+ias refers to the Compustat variable 'Identifiable Assets - Segment'
+see https://wrds-web.wharton.upenn.edu/wrds/support/Data/_001Manuals%20and%20Overviews/_001Compustat/_001North%20America%20-%20Global%20-%20Bank/_000dataguide/ias.cfm
+
+'arrange(Var1, Var2, Var3)' sorts the dataframe in ascending order by the variables Var1, Var2, Var3
+ Use 'desc(Variable)' to indicate that this Variable is to be sorted by descending order
+
+Anything embraced by opening " and closeing " is a text string
+'as.integer("8")' will convert the text string "8" into a variable of the integer type with a value 8
+'as.integer(TRUE)' will convert the logical value TRUE to integer 1 (FALSE will be converted to  0)
+
+
+# Compute number of segments, other diversification measures, and sum of segment sales (or segment assets)
+```{r}
+
+segmData <- data_cleaned %>%  
   # remove gvkey-datadate obs with unwanted segment SIC's by first setting unwanted sics_my to NA
   mutate(sics_my = ifelse((sics_my >= 6000 & sics_my <= 6999) 
                           | (sics_my >= 0000 & sics_my <= 1000)
                           | sics_my == 9000
-                          | sics_my == 8600 | sics_my == 8800 #| sics_my == 8900
+                          | sics_my == 8600 | sics_my == 8800  
                           , NA, sics_my)) %>%   # need to set to NA in order to use anyNA() later
   mutate(rm_flag = FALSE) %>% # set initial value of rm_flag (ie, by default, do not remove)
   group_by(
-    stype,   
-    gvkey, datadate) %>% 
-########################################################## <----------------------------------------- !!! 
+    stype, gvkey, datadate
+    ) %>% 
+########################################################## <------------------------------ !!! 
 # Custodio said to have removed all obs with any missing-value sics1 or unwanted sics_my
   mutate(rm_flag = ifelse(sum(is.na(sics1)|is.na(sics_my)) > 0, TRUE, FALSE)) %>% 
 ##########################################################  
   ungroup() %>% 
   filter(!rm_flag) %>% 
-# select(gvkey, stype, datadate, fyears, sid, sics_my, sics1, sics2, sics3, snms,
-#        everything()) %>% 
 
   #=======================================================
-  # compute nseg = number of segments, MS = 1 if nseg > 1L
+  # compute nseg = number of segments, MS = 1 if nseg > 1
   group_by(
-    stype,   
-    gvkey, datadate) %>% 
+    stype, gvkey, datadate
+    ) %>% 
   mutate(nseg = n(),
          saleSUM = sum(sales),
          iaSUM = sum(ias),
+         # compute each segment's weight as a fraction of the sum of all segment sales (or segment assets)
          w_sales = sales/saleSUM,
          w_ias = ias/iaSUM,
          ) %>% 
@@ -118,65 +157,49 @@ segmData <- data_cleaned %>% # 296944
   # define dummy for multiple-segment firms
   mutate(MS = as.integer(nseg > 1)) %>% 
   arrange(desc(nseg), gvkey, stype, datadate, sid) %>% 
-# select(gvkey, stype, soptp1, geotp, isosrc, datadate, fyears, MS, nseg, 
-#        saleSUM, iaSUM, 
-#        rm_flag, sid, sics_my, sics1, sics2, snms, 
-#        everything()) %>% 
   select(everything())
 
 ```
 
 
-## More remarks on filtering criteria by Custodio (2014)---------------------------------------------------------------
+Commands and functions used in the next code chunk: 
 
-sample of firms in Compustat Segments data from [1988 to 2007] meeting the following criteria:
+'paste0(TextString1, TextString2)' combines the texts in the two text string variables into one single text string
 
-* firms for unclassified services (SIC 8900) are excluded; 
-  
-* firm sales greater than $20 million; 
+'Dataframe_L %>% select(Var1, Var2, Var3)', or equivalently 'select(Dataframe_L, Var1, Var2, Var3)', 
+  selects to keep only the Var1, Var2, Var3 columns of the dataframe
+  'select(Var1, everything())' moves Var1 to the beginning column of the dataframe and 
+  still keeps everything else in the dataframe
 
-* firms for which the [sum of business segment sales or assets] deviates from the [firm’s total sales or assets] by [more than 5%]
-are also excluded, 
+'Dataframe_L %>% left_join(Dataframe_R, by = c("Var1", "Var2"))' merges all the variable columns in Dataframe_R to Dataframe_L by the merging key variables Var1 and Var2, keeping all the rows in Dataframe_L (and potential expanding the rows if the rows between the two dataframes do not match uniquely). 
 
-##----------------------------------------------------------------------------------------------------------------
+'ymd(VariablewithValueLikeADate)' turns a text string or integer variable with a value that looks like a date into R's date format, eg, 19901231 as an integer into 1990-12-31, a value of the date type in R. 
 
-# Read in Compustat Fundamental [Annual] Data (_raw) and define variables
+'tolower(names(Dataframe_L))' converts all the column variable names of the dataframe to lower case
+
+'mutate_at(vars(Var1, Var2, Var3), ~ ifelse(is.na(.x), 0, .x))' is equivalent to 
+  'mutate(Var1 =  ifelse(is.na(Var1), 0, Var1))' and similarly for Var2 and Var3 as well. 
+  'mutate(Var1 =  ifelse(is.na(Var1), 0, Var1))' means if Var1 is empty (ie, is.na(Var1) = TRUE), 
+  then assign the value 0 to Var1; otherwise, keeps Var1's original value as it is.
+  The above is done on certain variables. For example, Compustat's goodwill variabe (gdwl) often has missing values for many firms. Using these missing values as they are would mean automatically excluding these firms from the sample used for regression analysis. Often the missing values reflect the reality that the firms have not been involved in any business combinations and thus no goodwill has been created as a result. In other words, the goodwill these firms have is zero. This is why when there is a good reason, some missing-value variables may be converted into a 0 value to keep the observations for regression analysis. 
+
+
+# Read in firm-level data and define firm-level variables
 ```{r}
 
-
-# readRDS(paste0(Sys.getenv("Data"), "/Compustat/", "inferEarnA_raw", "2019-11-04_01.36.36", '.rds')) %>% 
-#   filter(fyear >= 2001 & fyear <= 2005) %>% 
-#   saveRDS(paste0(Sys.getenv("Data"), "/Compustat/", "inferEarnA_raw", '2001-2005.rds'))
-
-# The raw Fundamental Annual is most complete as it's not subject to prior deficiency in handling data
-
-
-dDiscA <- read.csv(paste0(mainDir, subDir, 'ccmfunda_01Jan1990_31Dec1991.csv'), 
+# Read in firm-level data and apply filtering criteria
+firmData <- read.csv(paste0(mainDir, subDir, firmData_file), 
                    stringsAsFactors = FALSE) %>% 
-# For simplicity, keep only the security issue ID = 01 so that 
-#   there is only one issue for each firm in the sample
+# For simplicity, keep only the security issue ID '01' so that 
+#   there is only one issue for each firm in the sample to avoid any complication
   filter(LIID == "1") %>% 
-  left_join(
-    read.csv(paste0(mainDir, subDir, 'ccmfunda_LIID=01_(FIC_ADRR)_01Jan1990_31Dec1991.csv'),
-             stringsAsFactors = FALSE) %>% 
-      select(GVKEY, datadate, fic, adrr), 
-    by = c("GVKEY", "datadate")  # note: gvkey originally was in captial letters after download
-    ) %>%  
 # remove ADR firms (ie, firms with non-empty ADR ratio) and firms incorporated outside USA
   filter(is.na(adrr) & fic == "USA") %>% 
-# convert datadate to Date format
-  mutate(
-      datadate_int = datadate, # keep a copy of the original integer format
-      datadate = ymd(datadate), 
-      )
-
-# change all column variable names to lowercase
-names(dDiscA) <- tolower(names(dDiscA))  
-  
-
-
-#dDiscA <- readRDS(paste0(Sys.getenv("Data"), "/Segment/", "inferEarnA_raw", '2001-2005.rds')) %>% 
-dDiscA <- dDiscA %>% 
+# keep only firm-level data from 12-month accounting period
+  filter(pddur == 12) %>% 
+# keep only final data
+  filter(upd == 3 & !is.na(upd)) %>% # = 3 means final
+# upd = 2 means newswire, incomplete, trading suspended, etc; = 1 means only market data, csho 
   # apply Custodio's criterion: sale >= 20 million
   filter(sale > 20) %>%  
   # The next is implicitly required to implement the "no larger than 5% deviation" criteria
@@ -185,13 +208,29 @@ dDiscA <- dDiscA %>%
 #########################################  
   # apply Custodio's criterion:
   filter(sich != 8900) %>%   
-#########################################
+# convert datadate to Date format
+  mutate(
+    datadate_int = datadate, # keep a copy of the original integer format
+    datadate = ymd(datadate), 
+    dyear = year(datadate), dmonth = month(datadate), dday = day(datadate),
+    ) 
+
+
+# change all column variable names to lowercase
+names(firmData) <- tolower(names(firmData))  
+  
+
+#########################################################
+# Construct firm-level variables
+firmData <- firmData %>% 
   # Define different levels of SIC to facilitate imputed value computation later
   mutate(
-    SIC4 = ((sich/10000) + 0.00001) %>% substr(3,6) %>% as.character(),
-    SIC3 = SIC4 %>% substr(1,3), 
-    SIC2 = SIC4 %>% substr(1,2),
-    SIC1 = SIC4 %>% substr(1,1),
+    SIC_4dig = ((sich/10000) + 0.00001) %>% substr(3,6) %>% as.character(),
+    # The above ensures the leading 0, if applicable, is captured in the 4-digit SIC code
+    # eg, when sich = 700 for AGRICULTURAL SERVICES, SIC_4dig shows the text string "0700"
+    SIC_3dig = SIC_4dig %>% substr(1,3), 
+    SIC_2dig = SIC_4dig %>% substr(1,2),
+    SIC_1dig = SIC_4dig %>% substr(1,1),
     ) %>% 
   #==============================================
   #keep a record of the original measures
@@ -200,61 +239,69 @@ dDiscA <- dDiscA %>%
   mutate_at(vars(gdwl, capx), ~ ifelse(is.na(.x), 0, .x)) %>%   
   #==============================================
   mutate(
+    # compute the estimated  market value of the firm asset 
     at_MV = at - ceq + prcc_f*csho,
+    # compute the firm asset adjusted for the goodwill (removal of its effect)
     atAdj = at - gdwl,  # Is gdwl >= 0 ?
+    # compute the estimated  market value of the firm asset adjusted for the goodwill
     atAdj_MV = atAdj - ceq + prcc_f*csho,
-    atAdj_MV = ifelse(atAdj_MV < 0, NA, atAdj_MV), # remove negative atAdj_MV, which would give meaningless xvAdj
+    # remove negative atAdj_MV, which would give meaningless Excess Value based on adj. total assets (xvAdj)
+    atAdj_MV = ifelse(atAdj_MV < 0, NA, atAdj_MV), 
 
+    # compute the q ratio actually observed for a firm 
     q_Obs = at_MV/at,
+    # compute the q ratio of a firm based on total assets adjusted for the goodwill
     qAdj_Obs = atAdj_MV/atAdj,
 
+    # compute total assets and adj. total assets in log scale (to mitigate the effect due to at's skewness)
     log_at = log(at),
     log_atAdj = log(atAdj),
+    # compute two control variables, EBIT to Sales ratio and Capital Expenditure to Sales ratio
     ebit2sale = oiadp/sale,
     capx2sale = capx/sale, 
     ) %>% 
   select(everything()) 
 
-
 ```
 
 
-# Merge Fundamental Annual data to Segment data (segment-centric)
-  !!! Note: one annual fyear can be merged to same segment fyears with different datadate's in the same fiscal year)
+To apply the filtering criterion below, segment-level data are merged into firm-level data to provide the sums of segment sales and segment assets (saleSUM and iaSUM): 
+
+  * firms for which the [sum of business segment sales or assets] deviates from the [firm’s total sales or assets] by [more than 5%] are also excluded
+
+Applying the criterion removes the firms that involve larger than acceptable deviations between firm and segment sales or assets, excluding these problematic cases from the sample.  
+
+
+# Merge to firm-level Data the saleSUM and iaSUM variables from segment-level data and exclude firms where firm sales (or total assets) are much larger than the sum of the firm's segment sales (or segment assets)
 ```{r}
 
-# Custodio's sample period for segment data
-startdate = "1990-01-01" #"1998-01-01" 
-enddate = "1999-12-31"    #"1999-12-31"
-
-
-dDiscSegA <- segmData %>% 
-  # differentiate segment datadate from annual datadate by renaming
-  rename(datadates = datadate) %>% 
-  inner_join(dDiscA, by = c("gvkey", "fyears" = "fyear")) %>% 
-  # ensure the annual data merged in is not latter than the segment datadates
-  filter(datadate <= datadates) %>%  
-  # apply Custodio's criterion: deviation in sale|at <= 5%
+firmData_cleaned <- firmData  %>% 
+  inner_join(
+    segmData %>% 
+      select(gvkey, datadate, 
+             saleSUM, iaSUM,
+             nseg, MS, 
+             ), 
+    by = c("gvkey", "datadate")) %>% 
+  # apply Custodio's criterion: deviation in firm sale (or at) from the segment sum <= 5%
   filter(abs(1 - saleSUM/sale) <= 0.05) %>%  
   filter(abs(1 - iaSUM/at) <= 0.05) %>%  
-  # Custodio's sample period
-  filter(datadates >= startdate & datadates <= enddate) %>%  
-#################################################################
-  # Define new variables for regression later
-#################################################################
-  select(sale, saleSUM, at, iaSUM, everything())
+  ##################################################
+  # sort by gvkey and desc(datadate)
+  arrange(gvkey, desc(datadate)) %>% 
+  # keep only rows with distinct gvkey-dyear 
+  distinct(gvkey, dyear, .keep_all = TRUE) %>% 
+  # Note: The above ensures that only the latest of multiple firm records in the same calendar year is retained.
+  #   The situation can occur under various circumstances, such as a change in fiscal year end leading to 
+  #   two consecutive accounting periods ending in different months of the same calendar year
+  ####################################################
+  select(everything())
 
 
-# convert to annual-centric dDiscAnnS from the segment-centric dDiscSegA
-dDiscAnnS <- dDiscSegA %>% 
-  # keep only rows with distinct gvkey-datadates pairs
-  distinct(gvkey, datadates, .keep_all = TRUE)  
- 
-
-# summary of key features
-dDiscAnnS %>% 
+# summary of key features of the firm-level data
+firmData_cleaned %>% 
   mutate_at(vars(nseg, MS), ~ as.factor(.)) %>% 
-  select(nseg, MS, fyears, sale, saleSUM, at, iaSUM,
+  select(nseg, MS, dyear, sale, saleSUM, at, iaSUM,
          gdwl, at_MV:capx2sale,
          ) %>% 
   summary()
@@ -262,115 +309,155 @@ dDiscAnnS %>%
 ```
 
 
-# Construct segment q_Imp as the median q of the narrowest SIC industry with 5 or more single-segment firms
+# Construct imputed segment q ratio (q_Imp) based on the median q of the single-segment firms in the narrowest SIC industry with 5 or more single-segment firms
 ```{r}
+
 # map each 4-digit SIC to the industry-median q of the narrowest SIC industry with 5 or more single-segment firms
 nObs_min = 5
-qqAdj_IndSS <- dDiscAnnS %>% 
+# Construct the data for industry q ratios based on the median SS firm of an industry (q_Ind, qAdj_Ind)
+qData_Ind <- firmData_cleaned %>% 
   filter(MS == 0) %>%  # keep only SS firms
-  filter(!is.na(q_Obs)) %>% # keep only those with non-missing q_Obs
-  group_by(SIC4, fyears) %>%  
+  filter(!is.na(q_Obs)) %>% # keep only those SS firms with non-missing actually observed q ratio (q_Obs)
+  # Group by each industry-year (using calendar data year and initially the 4-digit SIC)
+  group_by(SIC_4dig, dyear) %>%  
+  # compute n4, the number of SS firms in each 4-digit SIC industry each year (assuming only one unique datadate each year),
+  # If n4 is less than the required minimum 5, 
+  #   set the unadj. and adj. imputed q ratios (q_Ind and qAdj_Ind) to NA to indicate 'not yet found';
+  #   otherwise, set the q ratios to the median actually observed q ratios of the SS firms in that industry
+  #     these found imputed q ratios for the industry will not be overwritten in the remaining code lines;
+  #     only missing-value q_Ind and qAdj_Ind would be overwritten later.
   mutate(n4 = n(), 
          q_Ind = ifelse(n4 < nObs_min, NA, median(q_Obs)),
          qAdj_Ind = ifelse(n4 < nObs_min, NA, median(qAdj_Obs)),
          ) %>% 
-  group_by(SIC3, fyears) %>%  
+  # Continue to search for a sufficient narrow SIC industry (3-digit, then 2-digit, then 1-digit)
+  group_by(SIC_3dig, dyear) %>%  
   mutate(n3 = n(), 
          q_Ind = ifelse(n3 < nObs_min, NA, ifelse(is.na(q_Ind), median(q_Obs), q_Ind)),
          qAdj_Ind = ifelse(n3 < nObs_min, NA, ifelse(is.na(qAdj_Ind), median(qAdj_Obs), qAdj_Ind)),
          ) %>% 
-  group_by(SIC2, fyears) %>%  
+  # Continue to search for a sufficient narrow SIC industry (2-digit, then 1-digit)
+  group_by(SIC_2dig, dyear) %>%  
   mutate(n2 = n(), 
          q_Ind = ifelse(n2 < nObs_min, NA, ifelse(is.na(q_Ind), median(q_Obs), q_Ind)),
          qAdj_Ind = ifelse(n2 < nObs_min, NA, ifelse(is.na(qAdj_Ind), median(qAdj_Obs), qAdj_Ind)),
          ) %>% 
-  group_by(SIC1, fyears) %>%  
+  # Finally, search for a sufficient number of SS firms in the 1-digit SIc industry as the last resort
+  group_by(SIC_1dig, dyear) %>%  
   mutate(n1 = n(), 
          q_Ind = ifelse(n1 < nObs_min, NA, ifelse(is.na(q_Ind), median(q_Obs), q_Ind)),
          qAdj_Ind = ifelse(n1 < nObs_min, NA, ifelse(is.na(qAdj_Ind), median(qAdj_Obs), qAdj_Ind)),
          ) %>% 
   ungroup() %>% 
-  distinct(sich, fyears, q_Ind, qAdj_Ind)
+  # keep only rows with distinct values of these variables
+  distinct(sich, dyear, q_Ind, qAdj_Ind)
 
 ```
 
 
-# Construct imputed q and excess value variables
+# Construct imputed q ratios of MS firms and unadj. and adj. excess value variables
 ```{r}
-dDiscSegAxv <- dDiscSegA %>% 
-  left_join(qqAdj_IndSS, by = c("sics1" = "sich", "fyears")) %>% 
-  select(q_Ind, qAdj_Ind, everything()) %>% 
-  mutate(q_Imp_sw = w_sales*q_Ind,   
-         q_Imp_aw = w_ias*q_Ind,
-         qAdj_Imp_sw = w_sales*qAdj_Ind,   
-         qAdj_Imp_aw = w_ias*qAdj_Ind,
-         ) %>% 
-  group_by(gvkey, fyears) %>% 
-  mutate(q_Imp_sw = sum(q_Imp_sw),
-         q_Imp_aw = sum(q_Imp_aw),
-         qAdj_Imp_sw = sum(qAdj_Imp_sw),
-         qAdj_Imp_aw = sum(qAdj_Imp_aw),
-         ) %>% 
+
+# Construct imputed
+segmData_Imp <- segmData %>% # Begin with the segment data  
+  # For each combination of segment SIC and data year, 
+  #   merge in the data for industry q ratios used as the imputed segment q ratios derived from the industry-median of SS firms
+#######################################################################  
+  left_join(qData_Ind, by = c("sics1" = "sich", "dyear")) %>% 
+#######################################################################  
+  # Now that each row of segment record in the dataset also has the imputed segment q ratios,
+  #   an imputed segment q ratio (q_Ind or qAdj_Ind) can be weighted by the segment's share of 
+  #   all the segment sales (or segments assets) to prepare for summing up these weighted imputed segment q ratios
+  #   to obtain the sales- or asset-weighted imputed q ratio of an MS firm
+  mutate(
+    q_Imp_sw = w_sales*q_Ind,   
+    q_Imp_aw = w_ias*q_Ind,
+    qAdj_Imp_sw = w_sales*qAdj_Ind, 
+    qAdj_Imp_aw = w_ias*qAdj_Ind,
+    ) %>% 
+  # Group segment records by each firm and datadate
+  group_by(gvkey, datadate) %>% 
+  # For each firm-datadate, sum up the weighted imputed segment q ratios to obtain the sales- 
+  #   or asset-weighted imputed q ratio of a firm
+  mutate(
+    q_Imp_sw = sum(q_Imp_sw),
+    q_Imp_aw = sum(q_Imp_aw),
+    qAdj_Imp_sw = sum(qAdj_Imp_sw),
+    qAdj_Imp_aw = sum(qAdj_Imp_aw),
+    ) %>% 
   ungroup() %>% 
+  select(everything())
+  
+
+data_xv <- firmData_cleaned  %>% 
+  inner_join(
+    segmData_Imp %>% 
+      select(gvkey, datadate, 
+             q_Imp_sw, q_Imp_aw, qAdj_Imp_sw, qAdj_Imp_aw, 
+             ),  
+    by = c("gvkey", "datadate")) %>% 
+  # Now that each row has both the observed and imputed q ratios of its firm, 
+  #   the unadj. an adj. sales- and asset-weighted excess values can be computed 
+  #   based on the log ratio of the observed to imputed q of a firm
   mutate(
     xv_sw = log(q_Obs/q_Imp_sw),
     xv_aw = log(q_Obs/q_Imp_aw),
     xvAdj_sw = log(qAdj_Obs/qAdj_Imp_sw),
     xvAdj_aw = log(qAdj_Obs/qAdj_Imp_aw),
     ) %>%
+  # define factor variable dyear_fac (when included in regression, it works like year dummy variables) 
+  mutate(
+         dyear_fac = as.factor(dyear), #gvkey_fac = as.factor(gvkey),
+         ) %>% 
+  # sort by gvkey and desc(datadate)
+  arrange(gvkey, desc(datadate)) %>% 
+  # keep only rows with distinct gvkey-dyear 
+  distinct(gvkey, dyear, .keep_all = TRUE) %>%   
+  # move the newly created q ratios and excess value variables to the beginning of the dataframe
   select(matches("^q(|Adj)_Imp_"), matches("^xv(|Adj)_"), everything())
 
 
-# convert to annual-centric dDiscAnnSxv from the segment-centric dDiscSegAxv
-dDiscAnnSxv <- dDiscSegAxv %>% 
-  # define factor variable fyears_fac (when included in regression, it works like year dummy variables) 
-  mutate(#gvkey_fac = as.factor(gvkey),
-         fyears_fac = as.factor(fyears)
-         ) %>% 
-  # keep only rows with distinct gvkey-datadates pairs
-  distinct(gvkey, datadates, .keep_all = TRUE) %>% # only 66297; 65709 if using Compustat fyear convention
-  arrange(gvkey, fyears, datadates)
-
-
-                                                # #install.packages("rlang")
-                                            # library(rlang)
-                                            # library(inspectdf)
-                                            # library(skimr)
-                                                # #devtools::install_github("ropensci/skimr")
+# Save firm data with excess value variables for regression analysis
+saveRDS(data_xv, file = paste0(mainDir, subDir, 'firm_xv', 'Example.rds'))
 
 
 ```
 
 
-# excess value regressions (unadjusted and goodwill-adjusted)
+# Excess value regressions (unadjusted and goodwill-adjusted)
 ```{r}
 
+# Regression equation: same for all four cases below
+#fm.regr <- "xv ~ MS + lat + ebit2sale + capx2sale + dyear_fac" %>% as.formula()
 
-fm.regr <- "xv ~ MS + lat + ebit2sale + capx2sale" %>% as.formula()
-
-mod_aw <- lm(xv ~ MS + lat + ebit2sale + capx2sale + fyears_fac, 
-             dat = (dDiscAnnSxv %>% mutate(xv = xv_aw, lat = log_at))
+# Asset-weighted unadj. Excess Value (xv_aw) as the dep.var. and the unadj. total assets in log scale (log_at) as a control variable
+mod_aw <- lm(xv ~ MS + lat + ebit2sale + capx2sale + dyear_fac, 
+             dat = (data_xv %>% mutate(xv = xv_aw, lat = log_at))
              ) 
-
-modAdj_aw <- lm(xv ~ MS + lat + ebit2sale + capx2sale + fyears_fac, 
-                dat = (dDiscAnnSxv %>% mutate(xv = xvAdj_aw, lat = log_atAdj))
+# Asset-weighted adj. Excess Value (xvAdj_aw) as the dep.var. and the adj. total assets in log scale (log_atAdj) as a control variable
+modAdj_aw <- lm(xv ~ MS + lat + ebit2sale + capx2sale + dyear_fac, 
+                dat = (data_xv %>% mutate(xv = xvAdj_aw, lat = log_atAdj))
                 )
 
-mod_sw <- lm(xv ~ MS + lat + ebit2sale + capx2sale + fyears_fac, 
-             dat = (dDiscAnnSxv %>% mutate(xv = xv_sw, lat = log_at))
+# Sales-weighted unadj. Excess Value (xv_sw) as the dep.var. and the unadj. total assets in log scale (log_at) as a control variable
+mod_sw <- lm(xv ~ MS + lat + ebit2sale + capx2sale + dyear_fac, 
+             dat = (data_xv %>% mutate(xv = xv_sw, lat = log_at))
              ) 
 
-modAdj_sw <- lm(xv ~ MS + lat + ebit2sale + capx2sale + fyears_fac, 
-                dat = (dDiscAnnSxv %>% mutate(xv = xvAdj_sw, lat = log_atAdj))
+# Sales-weighted adj. Excess Value (xvAdj_sw) as the dep.var. and the adj. total assets in log scale (log_atAdj) as a control variable
+modAdj_sw <- lm(xv ~ MS + lat + ebit2sale + capx2sale + dyear_fac, 
+                dat = (data_xv %>% mutate(xv = xvAdj_sw, lat = log_atAdj))
                 ) 
 
-
-# Display regression results in table
+# Display results of the different regression models 
+#  (mod_aw, modAdj_aw, mod_sw, and modAdj_sw) in a single table as side-by-side columns
 suppressWarnings(
-stargazer::stargazer(mod_aw, modAdj_aw, mod_sw, modAdj_sw, 
+stargazer::stargazer(mod_aw, modAdj_aw, 
+                     mod_sw, modAdj_sw, 
                      dep.var.labels.include = FALSE, 
                      column.labels = c('xv\\_aw', 'xvAdj\\_aw', "xv\\_sw", "xvAdj\\_sw"), 
                      omit = c("_fac"),  
+                     omit.labels = c("Year dummies (omitted?)"),  
                      type = "text")
 )
 
@@ -378,5 +465,19 @@ stargazer::stargazer(mod_aw, modAdj_aw, mod_sw, modAdj_sw,
 ```
 
 
+# Not as neat if you display the regression models one by one without using {stargazer}
+```{r}
+
+# For example, so clumsy the outputs below for just one of the regression models
+
+# The full summary
+cat('*** Full summary *** ------------------------------------------------------')
+summary(mod_aw)
+
+# Or, in brief
+cat('\n\n*** In brief *** ----------------------------------------------------------')
+mod_aw
+
+```
 
 

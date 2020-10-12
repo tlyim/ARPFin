@@ -7,77 +7,43 @@ output:
 ---
 
 
-# Load raw data and required library
+# Load required library and the data
 ```{r}
 
-# library(magrittr)
+# '#' indcates the beginning of a comment (ignored by R) to annotate code lines
+# It is also a convenient way to deactivate a code line when you change your mind and want to exclude it
+
+
+# Below loads the required libraries
+#library(magrittr)
 library(tidyverse)
 library(lubridate)
-library(stargazer)
 
+segmData_file = 'compsegd_1990_1991.csv'
 
-name_df = "segmentHist"
-
-mainDir = '' #Sys.getenv("Data") #'D:/github/Data/'
-subDir = ''  #'/Segment/'
-#dir.create(file.path(mainDir, subDir), showWarnings = FALSE, recursive = TRUE)
-
+# Below sets changeable parameters for the path of the cleaned data file
+mainDir = ''  
+subDir = ''  
 
 ###################################################################################
-#---time_stamp = "2019-10-31_23.55.19"
-# To review the data structure of the raw data:
-rawData <- read.csv(paste0(mainDir, subDir, 'compsegd_1990_1991.csv')) %>% 
+# Read in raw segment data
+rawData <- read.csv(paste0(mainDir, subDir, segmData_file)) %>% 
     mutate(
       datadate_int = datadate, # keep a copy of the original integer format
       srcdate_int = srcdate,
       datadate = ymd(datadate), # convert to Date format
       srcdate = ymd(srcdate),
       )
+
 # change all column variable names to lowercase
 names(rawData) <- tolower(names(rawData))
-#---rawData <- readRDS(paste0(mainDir, subDir, name_df, "_raw", time_stamp, '.rds')) 
 ###################################################################################
 
 
-earliest = "1990-01-01" #"1998-01-01" 
-lastdate = "1999-12-31"    #"1999-12-31"
+# earliest = "1990-01-01" #"1998-01-01" 
+# lastdate = "1999-12-31"    #"1999-12-31"
 rawData %>% 
-  filter(datadate >= earliest & datadate <= lastdate) %>% 
-  saveRDS(paste0(mainDir, subDir, name_df, "_raw", 'Example.rds'))
-
-
-#=====================================================
-# segment Variable list for this dataset
-segmvars_list = "datadate, srcdate, srcs, upds, gvkey, sics1, sics2, sics3, 
-stype, sid, snms, soptp1, soptp2, geotp, naicsh, naicss1, naicss2, naicss3,
-
-emps, emps_dc, emps_fn, obs, obs_dc, 
-intseg, intseg_dc, oelim, oelim_dc, 
-esubs, esubs_dc, esubs_fn, ivaeqs, ivaeqs_dc, 
-salexg, salexg_dc, spis, spis_dc, xidos, xidos_dc, 
-
-atlls, atlls_dc, capxs, capxs_dc, capxs_fn, caxts, caxts_dc, 
-cogss, cogss_dc, dps, dps_dc, gdwls, gdwls_dc, 
-
-ias, ias_dc, ibs, ibs_dc, iints, iints_dc, 
-nis, nis_dc, nopxs, nopxs_dc, nxints, nxints_dc, ocaxs, ocaxs_dc, 
-oiadps, oiadps_dc, oibdps, oibdps_dc, ops, ops_dc, ops_fn, 
-ppents, ppents_dc, ptis, ptis_dc, rds, rds_dc, rds_fn, 
-
-revts, revts_dc, sales, sales_dc, sales_fn,  
-txts, txts_dc, txws, txws_dc, 
-xints, xints_dc, xsgas, xsgas_dc, 
-
-curcds, 
-isosrc 
-"  
-
-#=====================================================
-# firm Variable list for this dataset
-firmvars_list = "datadate gvkey 
-fic adrr
-fyear sich at sale oiadp ceq prcc_f csho capx  gdwl" %>% 
-  str_split("[ |\n]+", simplify = T) %>% c()  # "[ |\n]+" matches any number of spaces or line breaks (\n)
+  saveRDS(paste0(mainDir, subDir, "segmentHist_raw", 'Example.rds'))
 
 ```
 
@@ -85,53 +51,27 @@ fyear sich at sale oiadp ceq prcc_f csho capx  gdwl" %>%
 # Data integrity checks: Remove problematic observations (eg, gvkey-datadate obs. with missing-value sics1, etc)
 ```{r}
 
-earliest = "1990-01-01" #"1998-01-01" 
-lastdate = "1999-12-31"    #"1999-12-31"
+# earliest = "1990-01-01" #"1998-01-01" 
+# lastdate = "1999-12-31"    #"1999-12-31"
 
 data_cleaned <- rawData %>% 
-  filter(srcdate >= datadate) %>% # remove at least 6 data error cases
-################################################################## <-----------------------------!!!  
-# What if Custodio forgot to impose this ???  
-  filter(srcdate == datadate) %>% # confine to non-restated data
-################################################################## 
-  # extract year, month, day info from datadate and srcdate to facilitate data integrity checks to be done later
   mutate(dyear = year(datadate), dmonth = month(datadate), dday = day(datadate),
          syear = year(srcdate), smonth = month(srcdate), sday = day(srcdate),
          ) %>% 
-  # define for segment data the equivalent of Compustat's fyear for later merging with Fundamental annual data
-  mutate(
-    fyears = case_when(
-      dmonth <= 5 ~ year(datadate) - 1,
-      TRUE ~ year(datadate),
-      ),
-    ) %>% 
   #=========================================================
   # upds = 2 means newswire, incomplete, trading suspended, etc; = 1 means only market data, csho 
   filter(upds == 3 & !is.na(upds)) %>% # = 3 means final
-  filter(datadate >= earliest & datadate <= lastdate) %>% 
-############################################################### <----------------------------------------- !!!  
-  filter(stype == "BUSSEG") %>% # keep only BUSSEG
+############################################################### <--------------------------------- !!!  
   mutate(rm_flag = FALSE) %>% # set initial value of rm_flag (ie, by default, do not remove)
 ################################################################################################
   mutate(snms = tolower(snms)) %>% # standardize segment name to lowercase
-  mutate_at(vars(starts_with("sics")), ~ as.integer(.)) %>%  # first, convert sics's to integer type to be consistent with sich
+  # convert sics's to integer type to be consistent with sich
+  mutate_at(vars(starts_with("sics")), ~ as.integer(.)) %>%  
   # Create sics_my to allow for the possibility of later classifying undesirable cases into
   #   negative-value categories (eg, -6666 for "undesirable" financial segment)
   mutate(sics_my = sics1) %>% 
 ################################################################################################
-                  # select(datadate, srcdate, srcs, upds, fyears, gvkey, 
-                  #        rm_flag, sics_my, sics1, sics2, sics3, snms, soptp1, soptp2, geotp, 
-                  #        everything()) %>% 
   select(everything())  
-
-
-############################################################
-#!!! Note: types of segments (soptp1, soptp2, geotp) are important
-# 
-# soptp1 = "PD_SRVC" "GEO"  "MARKET" "DIV" "OPER" NA
-# soptp1 = "PD_SRVC" "GEO"  "MARKET" "DIV" NA
-# geotp = "3" "2" "1" NA
-############################################################
 
 ```
 
@@ -147,7 +87,8 @@ facVars <- "dmonth, smonth, dday, sday, srcs, upds, stype, sid, soptp1, soptp2, 
 data_cleaned %>% 
   # turn the following into factors only for the purpose of examining the categorical and continuous variables
   mutate_at(vars(facVars), ~ as.factor(.)) %>% 
-  select(datadate, srcdate, fyears, dyear, syear, dmonth, smonth, dday, sday, 
+  select(datadate, srcdate, 
+         dyear, syear, dmonth, smonth, dday, sday, 
          srcs, upds, stype, sid, 
          rm_flag, soptp1, soptp2, geotp, curcds, isosrc
          ) %>% 
@@ -166,7 +107,6 @@ data_cleaned %>%
 
 # Data integrity checks: Confirm no duplicate sid for each gvkey-datadate (or gvkey-dyear-dmonth)
 ```{r}
-#rm(rawData0)
 
 # no duplicate for each (gvkey, datadate, sid)
 data_cleaned %>% 
@@ -193,8 +133,6 @@ data_cleaned %>%
   filter(n() > 2) %>%
   nrow()
 # Expecting 0 found for n() > 2 (assuming n() = 2 caused by change of FYE only)
-        # arrange(gvkey, stype, sid, datadate) %>% 
-        # View()
 
 ```
 
@@ -202,7 +140,7 @@ data_cleaned %>%
 # Save cleaned data for further processing and regression analysis
 ```{r}
 
-saveRDS(data_cleaned, file = paste0(mainDir, subDir, name_df, "_clean", 'Example.rds'))
+saveRDS(data_cleaned, file = paste0(mainDir, subDir, "segmentHist_clean", 'Example.rds'))
 
 ```
 
