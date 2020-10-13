@@ -418,7 +418,8 @@ data_xv <- firmData_cleaned  %>%
 
 
 # Save firm data with excess value variables for regression analysis
-saveRDS(data_xv, file = paste0(mainDir, subDir, 'firm_xv', 'Example.rds'))
+write_csv(data_xv, paste0(mainDir, subDir, 'firm_xv', 'Example.csv'))
+#saveRDS(data_xv, file = paste0(mainDir, subDir, 'firm_xv', 'Example.rds'))
 
 
 ```

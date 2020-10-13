@@ -7,7 +7,7 @@ output:
 ---
 
 
-# Load required library and the data
+# Load required library and the raw segment-level data
 ```{r}
 
 # '#' indcates the beginning of a comment (ignored by R) to annotate code lines
@@ -48,7 +48,7 @@ rawData %>%
 ```
 
 
-# Data integrity checks: Remove problematic observations (eg, gvkey-datadate obs. with missing-value sics1, etc)
+# Data integrity checks: Remove problematic observations (e.g., from prelim releases), standardize data, etc
 ```{r}
 
 # earliest = "1990-01-01" #"1998-01-01" 
@@ -105,7 +105,7 @@ data_cleaned %>%
 ```
 
 
-# Data integrity checks: Confirm no duplicate sid for each gvkey-datadate (or gvkey-dyear-dmonth)
+# Data integrity checks: Confirm no duplicate segment ID (sid) for each gvkey-datadate (or gvkey-dyear-dmonth)
 ```{r}
 
 # no duplicate for each (gvkey, datadate, sid)
@@ -125,7 +125,7 @@ data_cleaned %>%
 
 
 #==========================================================
-# duplicates for each (gvkey, [dyear], sid) due to change of FYE or segment name/structure
+# any duplicates for each (gvkey, [dyear], sid) due to change of FYE or segment name/structure?
 data_cleaned %>% 
   group_by(
     stype,  
@@ -133,6 +133,8 @@ data_cleaned %>%
   filter(n() > 2) %>%
   nrow()
 # Expecting 0 found for n() > 2 (assuming n() = 2 caused by change of FYE only)
+
+# !!! Note: There may still be duplicates due to change of FYE to be taken care of later.
 
 ```
 
