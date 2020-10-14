@@ -399,18 +399,16 @@ output:
 
 - **Diver_CleanData.rmd**
   - do sanity checks and an initial clean-up on the raw data downloaded from WRDS 
-    - to get the data ready for further processing and analysis  
-      (e.g., for constructing new variables to be used for regression analysis)
-  - save the cleaned data as **segmentHist_cleanExample.rds**
-    - a file in R's native dataset format (.rds)
+  - apply various _filtering criteria_ to construct the sample for analysis
+  - save the cleaned data as **segmentHist_cleanExample.rds** and **firm_cleanExample.rds**
+    - files in R's native dataset format (.rds)
 
 
 
 ## Construct measures and run regressions
 
 - **Diver_Measures.Rmd**
-  - apply various _filtering criteria_ to construct the sample for analysis
-  - _merge_ the segment-level and firm-level data and construct the required variables
+  - construct the required variables (e.g., q ratio, excess value)
   - write the final data as the file **firm_xvExample.csv**
   - run several regressions and present the results _side-by-side_ as columns in _a single table_
 
