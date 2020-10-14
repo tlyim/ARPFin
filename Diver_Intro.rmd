@@ -356,6 +356,22 @@ output:
 
 
 
+## How to read prior literature
+
+- Should read broadly and assess the **credibility** and **relevance** of different reference sources  
+  to decide what to cite in the project report 
+  - **Avoid** articles from lower-quality journals (often with open access) found in the Internet
+
+- By referring to the studies cited in a study, you can map out the chronological development of the related literature
+  - [Web of Science]'s **Citation Network** is your friend
+  - The **Times cited** indicated there is an (imperfect) measure of credibility and relevance
+
+- In most cases, simply reading a study's **introduction (often ~5 pages)** would already let you understand a large part of its essence without getting into the fine details. 
+  - Before reading the introduction, read the **abstract (often ~250 words)** to decide whether it is worth reading further. 
+
+[Web of Science]: https://apps.webofknowledge.com/WOS_GeneralSearch_input.do?product=WOS&SID=C2WBfcKTxnYQenYEUrE&search_mode=GeneralSearch&pageSize=50
+
+
 ## Barriers to success
 
 - Bad time management

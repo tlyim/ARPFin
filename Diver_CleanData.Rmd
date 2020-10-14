@@ -181,7 +181,7 @@ facVars <- "dmonth, smonth, dday, sday, srcs, upds, stype, sid, soptp1, soptp2, 
 # Prelim look of various categorical variables
 segmData %>% 
   # turn the following into factors only for the purpose of examining the categorical and continuous variables
-  mutate_at(vars(facVars), ~ as.factor(.)) %>% 
+  mutate_at(vars(all_of(facVars)), ~ as.factor(.)) %>% 
   select(datadate, srcdate, 
          dyear, syear, dmonth, smonth, dday, sday, 
          srcs, upds, stype, sid, 
@@ -192,7 +192,7 @@ segmData %>%
 
 cat("\n\nsummary of continuous variables:\n\n")
 segmData %>%
-  select(-facVars) %>% 
+  select(-all_of(facVars)) %>% 
   select_if(is.numeric) %>%
   summary() %>% 
   print()
