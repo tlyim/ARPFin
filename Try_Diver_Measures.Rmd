@@ -1,0 +1,275 @@
+---
+title: "Constructing Diversification Measures (eg, MS = 1 if a multiple-segment firm)"
+output:
+  html_notebook: default
+  # html_document: default
+  # word_document: default
+---
+
+# Load required library and the cleaned segment-level data
+```{r}
+
+# '#' indcates the beginning of a comment (ignored by R) to annotate code lines
+# It is also a convenient way to deactivate a code line when you change your mind and want to exclude it
+
+
+# Below loads the required libraries
+#library(magrittr)
+library(tidyverse)
+library(lubridate)
+library(stargazer)
+
+
+# Below sets changeable parameters for the path of the cleaned data file
+mainDir = ''  
+subDir = ''  
+
+```
+
+
+# Read in cleaned segment-level and firm-level data
+```{r}
+
+# Read in the example data, in R's .rds format, already prepared by Diver_CleanData.Rmd
+segmData_clean <- readRDS(paste0(mainDir, subDir, "segmentHist_clean", 'Example.rds'))
+firmData_clean <- readRDS(paste0(mainDir, subDir, 'firm_clean', 'Example.rds')) 
+
+```
+
+
+#------------------------------------------------------------------------------------
+# Commands and functions used in the next code chunk: 
+
+'mutate_at(vars(Var1, Var2, Var3), ~ ifelse(is.na(.x), 0, .x))' is equivalent to 
+  'mutate(Var1 =  ifelse(is.na(Var1), 0, Var1))' and similarly for Var2 and Var3 as well. 
+  
+'mutate(Var1 =  ifelse(is.na(Var1), 0, Var1))' means if Var1 is empty (ie, is.na(Var1) = TRUE), 
+  then assign the value 0 to Var1; otherwise, keeps Var1's original value as it is.
+  The above is done on certain variables. For example, Compustat's goodwill variabe (gdwl) often has missing values for many firms. Using these missing values as they are would mean automatically excluding these firms from the sample used for regression analysis. Often the missing values reflect the reality that the firms have not been involved in any business combinations and thus no goodwill has been created as a result. In other words, the goodwill these firms have is zero. This is why when there is a good reason, some missing-value variables may be converted into a 0 value to keep the observations for regression analysis. 
+
+#------------------------------------------------------------------------------------
+
+# Construct required firm-level variables (eg, firm q ratio)
+```{r}
+
+firmData_clean <- firmData_clean %>% 
+  #########################################################
+  # Construct firm-level variables:
+  #########################################################
+  # Define different levels of SIC to facilitate imputed value computation later
+  mutate(
+    SIC_4dig = ((sich/10000) + 0.00001) %>% substr(3,6) %>% as.character(),
+    # The above ensures the leading 0, if applicable, is captured in the 4-digit SIC code
+    # eg, when sich = 700 for AGRICULTURAL SERVICES, SIC_4dig shows the text string "0700"
+    SIC_3dig = SIC_4dig %>% substr(1,3), 
+    SIC_2dig = SIC_4dig %>% substr(1,2),
+    SIC_1dig = SIC_4dig %>% substr(1,1),
+    ) %>% 
+  #==============================================
+  #keep a record of the original measures
+  mutate_at(vars(gdwl, capx), list(orig = ~ (.))) %>%  
+  # Unconditionally replace NA with zero because in this case, omission of reported items is likely due to zero value
+  mutate_at(vars(gdwl, capx), ~ ifelse(is.na(.x), 0, .x)) %>%   
+  #==============================================
+  mutate(
+    # compute the estimated  market value of the firm asset 
+    at_MV = at - ceq + prcc_f*csho,
+    # compute the firm asset adjusted for the goodwill (removal of its effect)
+    atAdj = at - gdwl,  # Is gdwl >= 0 ?
+    # compute the estimated  market value of the firm asset adjusted for the goodwill
+    atAdj_MV = atAdj - ceq + prcc_f*csho,
+    # remove negative atAdj_MV, which would give meaningless Excess Value based on adj. total assets (xvAdj)
+    atAdj_MV = ifelse(atAdj_MV < 0, NA, atAdj_MV), 
+
+    # compute the q ratio actually observed for a firm 
+    q_Obs = at_MV/at,
+    # compute the q ratio of a firm based on total assets adjusted for the goodwill
+    qAdj_Obs = atAdj_MV/atAdj,
+
+    # compute total assets and adj. total assets in log scale (to mitigate the effect due to at's skewness)
+    log_at = log(at),
+    log_atAdj = log(atAdj),
+    # compute two control variables, EBIT to Sales ratio and Capital Expenditure to Sales ratio
+    ebit2sale = oiadp/sale,
+    capx2sale = capx/sale, 
+    ) %>% 
+  select(everything()) 
+
+
+# summary of key features of the firm-level data
+firmData_clean %>% 
+  mutate_at(vars(nseg, MS), ~ as.factor(.)) %>% 
+  select(nseg, MS, dyear, sale, saleSUM, at, iaSUM,
+         gdwl, at_MV:capx2sale,
+         ) %>% 
+  summary()
+
+```
+
+
+# Construct imputed segment q ratio (q_Imp) based on the median q of the single-segment firms in the narrowest SIC industry with 5 or more single-segment firms
+```{r}
+
+# map each 4-digit SIC to the industry-median q of the narrowest SIC industry with 5 or more single-segment firms
+nObs_min = 5
+# Construct the data for industry q ratios based on the median SS firm of an industry (q_Ind, qAdj_Ind)
+qData_Ind <- firmData_clean %>% 
+  filter(MS == 0) %>%  # keep only SS firms
+  filter(!is.na(q_Obs)) %>% # keep only those SS firms with non-missing actually observed q ratio (q_Obs)
+  # Group by each industry-year (using calendar data year and initially the 4-digit SIC)
+  group_by(SIC_4dig, dyear) %>%  
+  # compute n4, the number of SS firms in each 4-digit SIC industry each year (assuming only one unique datadate each year),
+  # If n4 is less than the required minimum 5, 
+  #   set the unadj. and adj. imputed q ratios (q_Ind and qAdj_Ind) to NA to indicate 'not yet found';
+  #   otherwise, set the q ratios to the median actually observed q ratios of the SS firms in that industry
+  #     these found imputed q ratios for the industry will not be overwritten in the remaining code lines;
+  #     only missing-value q_Ind and qAdj_Ind would be overwritten later.
+  mutate(n4 = n(), 
+         q_Ind = ifelse(n4 < nObs_min, NA, median(q_Obs)),
+         qAdj_Ind = ifelse(n4 < nObs_min, NA, median(qAdj_Obs)),
+         ) %>% 
+  # Continue to search for a sufficient narrow SIC industry (3-digit, then 2-digit, then 1-digit)
+  group_by(SIC_3dig, dyear) %>%  
+  mutate(n3 = n(), 
+         q_Ind = ifelse(n3 < nObs_min, NA, ifelse(is.na(q_Ind), median(q_Obs), q_Ind)),
+         qAdj_Ind = ifelse(n3 < nObs_min, NA, ifelse(is.na(qAdj_Ind), median(qAdj_Obs), qAdj_Ind)),
+         ) %>% 
+  # Continue to search for a sufficient narrow SIC industry (2-digit, then 1-digit)
+  group_by(SIC_2dig, dyear) %>%  
+  mutate(n2 = n(), 
+         q_Ind = ifelse(n2 < nObs_min, NA, ifelse(is.na(q_Ind), median(q_Obs), q_Ind)),
+         qAdj_Ind = ifelse(n2 < nObs_min, NA, ifelse(is.na(qAdj_Ind), median(qAdj_Obs), qAdj_Ind)),
+         ) %>% 
+  # Finally, search for a sufficient number of SS firms in the 1-digit SIc industry as the last resort
+  group_by(SIC_1dig, dyear) %>%  
+  mutate(n1 = n(), 
+         q_Ind = ifelse(n1 < nObs_min, NA, ifelse(is.na(q_Ind), median(q_Obs), q_Ind)),
+         qAdj_Ind = ifelse(n1 < nObs_min, NA, ifelse(is.na(qAdj_Ind), median(qAdj_Obs), qAdj_Ind)),
+         ) %>% 
+  ungroup() %>% 
+  # keep only rows with distinct values of these variables
+  distinct(sich, dyear, q_Ind, qAdj_Ind)
+
+```
+
+
+# Construct imputed q ratios of MS firms and unadj. and adj. excess value variables
+```{r}
+
+# Construct imputed q ratios for synthetic MS firms as comparison benchmarks
+imputedData <- segmData_clean %>% # Begin with the segment data  
+  # For each combination of segment SIC and data year, 
+  #   merge in the data for industry q ratios used as the imputed segment q ratios derived from the industry-median of SS firms
+#######################################################################  
+  left_join(qData_Ind, by = c("sics1" = "sich", "dyear")) %>% 
+#######################################################################  
+  # Now that each row of segment record in the dataset also has the imputed segment q ratios,
+  #   an imputed segment q ratio (q_Ind or qAdj_Ind) can be weighted by the segment's share of 
+  #   all the segment sales (or segments assets) to prepare for summing up these weighted imputed segment q ratios
+  #   to obtain the sales- or asset-weighted imputed q ratio of an MS firm
+  mutate(
+    q_Imp_sw = w_sales*q_Ind,   
+    q_Imp_aw = w_ias*q_Ind,
+    qAdj_Imp_sw = w_sales*qAdj_Ind, 
+    qAdj_Imp_aw = w_ias*qAdj_Ind,
+    ) %>% 
+  # Group segment records by each firm and datadate
+  group_by(gvkey, datadate) %>% 
+  # For each firm-datadate, sum up the weighted imputed segment q ratios to obtain the sales- 
+  #   or asset-weighted imputed q ratio of a firm
+  summarise(
+    q_Imp_sw = sum(q_Imp_sw),
+    q_Imp_aw = sum(q_Imp_aw),
+    qAdj_Imp_sw = sum(qAdj_Imp_sw),
+    qAdj_Imp_aw = sum(qAdj_Imp_aw),
+    ) %>% 
+  # Note: After the step above, each gvkey-datadate is associated with one set of such sums; 
+  #  thus, the resulting dataframe has firm-year records, rather than firm-segment-year.
+  select(everything())
+  
+
+# Construct excess value variables
+data_xv <- firmData_clean  %>% 
+  left_join(
+    imputedData, 
+    by = c("gvkey", "datadate")) %>% 
+  # Now that each row has both the observed and imputed q ratios of its firm, 
+  #   the unadj. an adj. sales- and asset-weighted excess values can be computed 
+  #   based on the log ratio of the observed to imputed q of a firm
+  mutate(
+    xv_sw = log(q_Obs/q_Imp_sw),
+    xv_aw = log(q_Obs/q_Imp_aw),
+    xvAdj_sw = log(qAdj_Obs/qAdj_Imp_sw),
+    xvAdj_aw = log(qAdj_Obs/qAdj_Imp_aw),
+    ) %>%
+  # define factor variable dyear_fac (when included in regression, it works like year dummy variables) 
+  mutate(
+         dyear_fac = as.factor(dyear), #gvkey_fac = as.factor(gvkey),
+         ) %>% 
+  select(matches("^q(|Adj)_Imp_"), matches("^xv(|Adj)_"), everything())
+
+
+# Save firm data with excess value variables for regression analysis
+write_csv(data_xv, paste0(mainDir, subDir, 'firm_xv', 'Example.csv'))
+
+
+```
+
+
+# Excess value regressions (unadjusted and goodwill-adjusted)
+```{r}
+
+# Regression equation: same for all four cases below
+#fm.regr <- "xv ~ MS + lat + ebit2sale + capx2sale + dyear_fac" %>% as.formula()
+
+# Asset-weighted unadj. Excess Value (xv_aw) as the dep.var. and the unadj. total assets in log scale (log_at) as a control variable
+mod_aw <- lm(xv ~ MS + lat + ebit2sale + capx2sale + dyear_fac, 
+             dat = (data_xv %>% mutate(xv = xv_aw, lat = log_at))
+             ) 
+# Asset-weighted adj. Excess Value (xvAdj_aw) as the dep.var. and the adj. total assets in log scale (log_atAdj) as a control variable
+modAdj_aw <- lm(xv ~ MS + lat + ebit2sale + capx2sale + dyear_fac, 
+                dat = (data_xv %>% mutate(xv = xvAdj_aw, lat = log_atAdj))
+                )
+
+# Sales-weighted unadj. Excess Value (xv_sw) as the dep.var. and the unadj. total assets in log scale (log_at) as a control variable
+mod_sw <- lm(xv ~ MS + lat + ebit2sale + capx2sale + dyear_fac, 
+             dat = (data_xv %>% mutate(xv = xv_sw, lat = log_at))
+             ) 
+
+# Sales-weighted adj. Excess Value (xvAdj_sw) as the dep.var. and the adj. total assets in log scale (log_atAdj) as a control variable
+modAdj_sw <- lm(xv ~ MS + lat + ebit2sale + capx2sale + dyear_fac, 
+                dat = (data_xv %>% mutate(xv = xvAdj_sw, lat = log_atAdj))
+                ) 
+
+# Display results of the different regression models 
+#  (mod_aw, modAdj_aw, mod_sw, and modAdj_sw) in a single table as side-by-side columns
+suppressWarnings(
+stargazer::stargazer(mod_aw, modAdj_aw, 
+                     mod_sw, modAdj_sw, 
+                     dep.var.labels.include = FALSE, 
+                     column.labels = c('xv\\_aw', 'xvAdj\\_aw', "xv\\_sw", "xvAdj\\_sw"), 
+                     omit = c("_fac"),  
+                     omit.labels = c("Year dummies (omitted?)"),  
+                     type = "text")
+)
+
+
+```
+
+
+# Not as neat if you display the regression models one by one without using {stargazer}
+```{r}
+
+# For example, so clumsy the outputs below for just one of the regression models
+
+# The full summary
+cat('*** Full summary *** ------------------------------------------------------')
+summary(mod_aw)
+
+# Or, in brief
+cat('\n\n*** In brief *** ----------------------------------------------------------')
+mod_aw
+
+```
+
+
