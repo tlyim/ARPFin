@@ -1,0 +1,113 @@
+---
+title: "<medium><b>Adjusting for goodwill:</b></medium>"
+subtitle: "Impact on valuation ratio (Custodio 2014)"
+x author: "<smaller><cap>Dr. Andrew Yim</cap></smaller>"
+x date: "<smaller>October 2020</smaller>"
+output: 
+  revealjs::revealjs_presentation:
+    incremental: false  #true = fragment display of bullet point list
+    fig_width: 7.5  #7
+    fig_height: 5  #6
+    fig_caption: true
+    slideNumber: true
+    previewLinks: true
+#    slide_level: 2
+#    smart: false
+#    includes:
+#      after_body: doc_suffix.html
+#      in_header: header.html
+#      before_body: doc_prefix.html
+#    pandoc_args: [
+#      "--title-prefix", "Foo",
+#      "--id-prefix", "Bar"
+#      ]
+    theme: sky
+    highlight: haddock
+    center: true
+    transition: convex
+    css: reveal.css
+    self_contained: true # false 
+#    reveal_plugins: ["zoom"]  #, "search"]
+# Note: To cache git credentials for 1.5 hour:
+#    git config --global credential.helper 'cache --timeout 5400'
+---
+
+
+
+## Diversification Discount
+
+- Discount on **diversified firms' valuations**, 
+  - when benchmarked against focused firms' valuations (**Berger and Ofek 1995**)
+  - **Custodio (2014)** uses q ratio to measure the discount
+  - reasons proposed
+    - opacity, inefficient resource allocation, etc
+
+- The literature often assumes
+  - diversified firms = multiple-segment (**MS**) firms
+  - focused firms = single-segment (**SS**) firms
+
+
+
+## Example segment-level and firm-level data
+
+![Segment-level data](segmentData.PNG){.class width=80%}
+
+![Firm-level data](firmData.PNG)
+
+
+
+## q ratio vs. other valuation ratios
+
+- Popular valuation ratios include  
+  - previously discussed:
+    - price to earnings (**P/E**)
+    - price to operating cash flow (**P/OCF**)
+  - price to book (**P/B**)
+    - = Share price / BPS
+    - where BPS = BV of common shareholders' equity per common share outstanding
+  - **q ratio**
+    - just like P/B, but concerns **total assets**, rather than common equity
+
+  
+
+## Valuation ratio for Comparison
+
+- **q ratio** used by Custodio (2014)
+    - q = Market Value to Book Value **of Total Assets**
+- BV of TA is measured with Compustat's variable `at`
+  - MV of TA is estimated with
+    - `at - ceq + prcc_f*csho`,
+  - where
+    - `ceq` = BV of common equity
+    - `prcc_f` = closing share price at fiscal year end
+    - `csho` = number of common shares outstanding
+
+
+
+## The comparision benchmark
+
+- For any real MS firm, 
+  - benchmark it against an equivalent **hypothetical MS firm** 
+    - constructed by relating each segment of the real MS firm to a similar SS firm
+- Then compare the real MS firm's q ratio (**q_Obs**) to the hypothetical MS firm's imputed q ratio (**q_Imp**) 
+  - A _**valuation discount**_ exists if 
+    - `q_Obs < q_Imp`
+    - or, equivalently, `q_Obs/q_Imp < 1`
+
+
+
+## Adjusting for goodwill 
+
+- Custodio (2014) finds that 
+  - MS firms have substantially **more acquisition activities** than SS firms
+  - consequently, MS firms' BV of total assets contain significantly more goodwill
+  
+- Implication
+  - MS firms' _**as-reported**_ q ratios (= MV to BV of TA) tend to be biased downward, compared to SS firm's
+  
+- Adjusting BV of total assets by **removing goodwill**
+  - MS firms' _**adjusted**_ q ratios are no longer biased downward systematically
+  - No more significant diversification discount 
+  
+  
+  
